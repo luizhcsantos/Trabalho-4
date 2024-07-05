@@ -1,0 +1,11 @@
+Pesquise e crie um resumo sobre as seguintes criptografias:
+- DES
+- 3DES
+ - Blowfish
+- AES
+- SAFER
+Cada criptografia deve conter pelo menos meia pagina de explicação, utilize a formatação padrão arial 12, espaçamento 1,5.
+Escolha uma dessas criptografias e implemente em python 3.x
+Crie 2 versões de programa.
+V1 - utilize a biblioteca do Python3.x
+V2 - Construa sua biblioteca.

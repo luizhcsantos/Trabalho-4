@@ -1,0 +1,9 @@
+https://blog.hosts.green/tipos-de-criptografia/
+https://www.dio.me/articles/algoritmos-de-criptografia
+https://www.geeksforgeeks.org/data-encryption-standard-des-set-1/
+https://blog.grancursosonline.com.br/protocolos-criptograficos-simetricos-e-assimetricos-uma-visao-geral-dos-principais-algoritmos/
+https://www.gta.ufrj.br/grad/07_1/ass-dig/TiposdeCriptografia.html
+https://www.rsaconference.com/library/blog/brute-force-cracking-the-data-encryption-standard
+https://www.techtarget.com/searchsecurity/definition/Advanced-Encryption-Standard#:~:text=The%20Advanced%20Encryption%20Standard%20(AES)%20is%20a%20symmetric%20block%20cipher,cybersecurity%20and%20electronic%20data%20protection.
+https://www.ime.usp.br/~rt/safergen.pdf
+https://link.springer.com/content/pdf/10.1007/3-540-58108-1_1.pdf
