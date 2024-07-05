@@ -1,28 +1,20 @@
-import binascii
+from Crypto.Util.Padding import pad, unpad
+
+# Funções auxiliares para o algoritmo DES
 
 def permutar(bloco, tabela):
-    return [bloco[x - 1] for x in tabela]
+    return ''.join(bloco[x - 1] for x in tabela)
 
 def xor(t1, t2):
-    return [int(x) ^ int(y) for x, y in zip(t1, t2)]
-
-def deslocar_esquerda(bloco, n):
-    return bloco[n:] + bloco[:n]
+    return ''.join(str(int(x) ^ int(y)) for x, y in zip(t1, t2))
 
 def bits_para_bytes(s):
-    return bytes(int(s[i:i+8], 2) for i in range(0, len(s), 8))
+    return int(s, 2).to_bytes((len(s) + 7) // 8, byteorder='big')
 
 def bytes_para_bits(b):
     return ''.join(f'{byte:08b}' for byte in b)
 
-def pad(text):
-    pad_len = 8 - len(text) % 8
-    return text + chr(pad_len) * pad_len
-
-def unpad(text):
-    pad_len = ord(text[-1])
-    return text[:-pad_len]
-
+# Tabelas de permutação e substituição
 IP = [58, 50, 42, 34, 26, 18, 10, 2,
       60, 52, 44, 36, 28, 20, 12, 4,
       62, 54, 46, 38, 30, 22, 14, 6,
@@ -101,62 +93,107 @@ P = [16, 7, 20, 21,
      19, 13, 30, 6,
      22, 11, 4, 25]
 
+# Função F do DES, incluindo expansão, substituição e permutação
 def funcao_feistel(direita, chave):
+    # Expansão de 32 bits para 48 bits
     direita_expandida = permutar(direita, E)
+    # XOR com a chave
     resultado_xor = xor(direita_expandida, chave)
+    # Substituição usando S-Boxes
     substituido = []
     for i in range(8):
         bloco = resultado_xor[i*6:(i+1)*6]
         linha = int(f'{bloco[0]}{bloco[5]}', 2)
-        coluna = int(''.join(map(str, bloco[1:5])), 2)
-        substituido.extend(list(f'{S_BOX[i][linha][coluna]:04b}'))
+        coluna = int(''.join(bloco[1:5]), 2)
+        substituido.extend(f'{S_BOX[i][linha][coluna]:04b}')
+    # Permutação P
     return permutar(substituido, P)
 
 def des_criptografar(texto_plano, chave):
-    texto_plano = pad(texto_plano)
-    bits_texto_plano = bytes_para_bits(texto_plano.encode('utf-8'))
-    bits_chave = bytes_para_bits(chave.encode('utf-8'))
-    bits_texto_plano = bits_texto_plano.ljust(64, '0')
-    bits_chave = bits_chave.ljust(64, '0')
-    texto_permutado = permutar(bits_texto_plano, IP)
-    esquerda, direita = texto_permutado[:32], texto_permutado[32:]
+    # Adicionar padding ao texto plano
+    texto_plano_padded = pad(texto_plano.encode('utf-8'), 8)
     
-    for i in range(16):
-        nova_direita = xor(esquerda, funcao_feistel(direita, bits_chave))
-        esquerda = direita
-        direita = nova_direita
+    # Inicializa o texto criptografado
+    texto_criptografado = b''
     
-    texto_combinado = direita + esquerda
-    texto_criptografado = permutar(texto_combinado, FP)
-    return bits_para_bytes(''.join(map(str, texto_criptografado)))
+    # Criptografa cada bloco de 8 bytes (64 bits)
+    for i in range(0, len(texto_plano_padded), 8):
+        bloco = texto_plano_padded[i:i+8]
+        bits_texto_plano = bytes_para_bits(bloco)
+        bits_chave = bytes_para_bits(chave.encode('utf-8'))
+        
+        # Ajuste para que a chave tenha o comprimento correto
+        bits_chave = bits_chave.ljust(64, '0')
+        
+        # Permutação inicial
+        texto_permutado = permutar(bits_texto_plano, IP)
+        # print(f"Texto permutado inicial: {texto_permutado}")
+
+        # Divida o texto permutado em duas metades
+        esquerda, direita = texto_permutado[:32], texto_permutado[32:]
+        
+        # Rounds de Feistel
+        for j in range(16):
+            nova_direita = xor(esquerda, funcao_feistel(direita, bits_chave))
+            esquerda = direita
+            direita = nova_direita
+            # print(f"Round {j + 1} - Esquerda: {esquerda}, Direita: {direita}")
+        
+        # Juntar as metades
+        texto_combinado = direita + esquerda
+        
+        # Permutação final
+        texto_criptografado_bloco = permutar(texto_combinado, FP)
+        # print(f"Texto permutado final: {texto_criptografado_bloco}")
+
+        # Converte o bloco criptografado de volta para bytes
+        texto_criptografado += bits_para_bytes(texto_criptografado_bloco)
+    
+    return texto_criptografado
 
 def des_descriptografar(texto_criptografado, chave):
-    bits_texto_criptografado = bytes_para_bits(texto_criptografado)
-    bits_chave = bytes_para_bits(chave.encode('utf-8'))
-    bits_chave = bits_chave.ljust(64, '0')
-    texto_permutado = permutar(bits_texto_criptografado, IP)
-    esquerda, direita = texto_permutado[:32], texto_permutado[32:]
+    # Inicializa o texto descriptografado
+    texto_descriptografado = b''
     
-    for i in range(15, -1, -1):
-        nova_esquerda = xor(direita, funcao_feistel(esquerda, bits_chave))
-        direita = esquerda
-        esquerda = nova_esquerda
+    # Descriptografa cada bloco de 8 bytes (64 bits)
+    for i in range(0, len(texto_criptografado), 8):
+        bloco = texto_criptografado[i:i+8]
+        bits_texto_criptografado = bytes_para_bits(bloco)
+        bits_chave = bytes_para_bits(chave.encode('utf-8'))
+        
+        # Ajuste para que a chave tenha o comprimento correto
+        bits_chave = bits_chave.ljust(64, '0')
+        
+        # Permutação inicial
+        texto_permutado = permutar(bits_texto_criptografado, IP)
+        # print(f"Texto permutado inicial (descriptografar): {texto_permutado}")
+
+        # Divida o texto permutado em duas metades
+        esquerda, direita = texto_permutado[:32], texto_permutado[32:]
+        
+        # Rounds de Feistel (em ordem inversa)
+        for j in range(15, -1, -1):
+            nova_direita = xor(esquerda, funcao_feistel(direita, bits_chave))
+            esquerda = direita
+            direita = nova_direita
+            # print(f"Round {16 - j} - Esquerda: {esquerda}, Direita: {direita}")
+        
+        # Juntar as metades
+        texto_combinado = direita + esquerda
+        
+        # Permutação final
+        texto_descriptografado_bloco = permutar(texto_combinado, FP)
+        # print(f"Texto permutado final (descriptografar): {texto_descriptografado_bloco}")
+
+        # Converte o bloco descriptografado de volta para bytes
+        texto_descriptografado += bits_para_bytes(texto_descriptografado_bloco)
     
-    texto_combinado = direita + esquerda
-    texto_descriptografado = permutar(texto_combinado, FP)
-    texto_descriptografado_bytes = bits_para_bytes(''.join(map(str, texto_descriptografado)))
-    
-    try:
-        texto_final = unpad(texto_descriptografado_bytes.decode('utf-8', errors='ignore'))
-        return texto_final
-    except Exception as e:
-        return texto_descriptografado_bytes.decode('utf-8', errors='ignore')
+    # Remover padding do texto descriptografado
+    return unpad(texto_descriptografado, 8).decode('utf-8')
 
 # Teste
-texto_plano = "testeabc12345"
-chave = "chave123"
-
-print("Texto original:", texto_plano)
+texto_plano = input("Digite o texto a ser criptografado: ")
+chave = "chave123"  # Chave de 8 caracteres para simplificação
 
 criptografado = des_criptografar(texto_plano, chave)
 print("Texto criptografado:", criptografado.hex())
